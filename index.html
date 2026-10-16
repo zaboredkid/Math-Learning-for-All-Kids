@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aariv's Education</title>
+    <link href="https://googleapis.com" rel="stylesheet">
+    <style>
+        :root { --g: #00ff41; --bg: #080808; }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body { background: var(--bg); color: var(--g); font-family: 'Share Tech Mono', monospace; overflow: hidden; height: 100vh; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+        #canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; opacity: 0.15; }
+        #ui { position: relative; z-index: 2; display: flex; flex-direction: column; height: 100%; gap: 10px; }
+        header, .panel, .screen { border: 2px solid var(--g); background: rgba(12,22,12,0.9); padding: 10px; box-shadow: 0 0 10px rgba(0,255,65,0.3); }
+        header { display: flex; justify-content: space-between; align-items: center; }
+        .config-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 5px; }
+        select { background: #002200; color: var(--g); border: 1px solid var(--g); font-family: inherit; padding: 4px 8px; cursor: pointer; }
+        .main { display: flex; flex: 1; gap: 10px; min-height: 0; }
+        .screen { flex: 1; display: flex; flex-direction: column; justify-content: space-between; font-size: 1.3rem; }
+        #hint { border: 1px dashed rgba(0,255,65,0.4); padding: 8px; min-height: 60px; font-size: 1rem; margin: 10px 0; white-space: pre-wrap; background: rgba(0,0,0,0.3); }
+        .input-row { display: flex; align-items: center; background: rgba(0,30,0,0.3); padding: 6px; border-top: 1px dashed var(--g); }
+        #ansBox { color: #fff; margin-left: 10px; font-weight: bold; border-bottom: 2px solid var(--g); min-width: 40px; }
+        .kbd { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; background: rgba(0,15,0,0.9); padding: 5px; border: 1px solid var(--g); }
+        button { background: #003b00; border: 1px solid var(--g); color: var(--g); font-family: inherit; font-size: 1.1rem; padding: 12px; cursor: pointer; }
+        button:active { background: var(--g); color: var(--bg); }
+        .flash { animation: f 0.8s infinite; }
+        @keyframes f { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+        @media(max-width: 768px) { .main { flex-direction: column; } .screen { font-size: 1rem; } button { padding: 8px; } }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div id="ui">
+        <header>
+            <h2>AARIV'S EDUCATION</h2>
+            <div>SmartScore: <span id="score">0</span> | Streak: <span id="streak">0</span></div>
+        </header>
+
+        <div class="panel">
+            <div class="config-row">
+                <label>GRADE PROTOCOL:</label>
+                <select id="gradeSelect" onchange="initSystem()">
+                    <option value="K">K-2: Sector Alpha</option>
+                    <option value="E">3-5: Sector Beta</option>
+                    <option value="M">6-8: Sector Gamma</option>
+                    <option value="H">9-12: Sector Omega</option>
+                </select>
+                <label>OPERATIONAL MODULE:</label>
+                <select id="opSelect" onchange="initSystem()">
+                    <option value="+">ADDITION</option>
+                    <option value="-">SUBTRACTION</option>
+                    <option value="*">MULTIPLICATION</option>
+                    <option value="/">DIVISION</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="main">
+            <div class="screen">
+                <div id="log" style="color: #888; font-size: 0.85rem;">[SYS SECURE // STANDBY...]</div>
+                <div id="qText" style="color:#fff; margin: 10px 0;">Generating vector parameters...</div>
+                <div id="hint"></div>
+                <div id="feedback" style="min-height: 24px; font-weight: bold;"></div>
+                <div class="input-row">
+                    <span>SYS_INP_></span><span id="ansBox"></span><span class="flash" style="width:8px; height:18px; background:var(--g); margin-left:4px;"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="kbd">
+            <button onclick="k('1')">1</button><button onclick="k('2')">2</button><button onclick="k('3')">3</button><button onclick="k('CLR')" style="background:#500;">CLR</button>
+            <button onclick="k('4')">4</button><button onclick="k('5')">5</button><button onclick="k('6')">6</button><button onclick="k('-')">-</button>
+            <button onclick="k('7')">7</button><button onclick="k('8')">8</button><button onclick="k('9')">9</button><button onclick="k('EXE')" style="grid-row:span 2; background:#080; height:100%;">EXE</button>
+            <button onclick="k('0')" style="grid-column:span 2;">0</button><button onclick="k('.')">.</button>
+        </div>
+    </div>
+
+    <script>
+        // Matrix Canvas background driver
+        const cvs = document.getElementById('canvas'), ctx = cvs.getContext('2d');
+        function sz() { cvs.width = window.innerWidth; cvs.height = window.innerHeight; }
+        window.addEventListener('resize', sz); sz();
+        const ch = "01XYZ+-/=⚡█▒".split(''), fsz = 14;
+        let cols = cvs.width / fsz, drops = Array(Math.floor(cols)).fill(1);
+        setInterval(() => {
+            ctx.fillStyle = 'rgba(8,8,8,0.06)'; ctx.fillRect(0,0,cvs.width,cvs.height);
+            ctx.fillStyle = '#00ff41'; ctx.font = fsz+'px monospace';
+            for(let i=0; i<drops.length; i++) {
+                ctx.fillText(ch[Math.floor(Math.random()*ch.length)], i*fsz, drops[i]*fsz);
+                if(drops[i]*fsz > cvs.height && Math.random() > 0.975) drops[i] = 0; drops[i]++;
+            }
+        }, 33);
+
+        // Adaptive grade-scalable engine
+        let curQ = {}, typed = "", score = 0, streak = 0;
+        function initSystem() { typed = ""; document.getElementById('ansBox').innerText = ""; document.getElementById('feedback').innerText = ""; genQ(); }
+        
+        function genQ() {
+            let gd = document.getElementById('gradeSelect').value, op = document.getElementById('opSelect').value;
+            let a, b, q, ans, h = "";
+            let r = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+            if (gd === 'K') { // Kindergarten - 2nd Grade
+                a = r(1, 10); b = r(1, 10);
+                if (op === '-') { if(a < b) [a, b] = [b, a]; }
+                if (op === '*') { a = r(1, 5); b = r(1, 5); }
+                if (op === '/') { b = r(1, 3); a = b * r(1, 4); }
+            } else if (gd === 'E') { // Elementary (3rd - 5th)
+                a = r(10, 100); b = r(5, 50);
+                if (op === '*') { a = r(4, 12); b = r(3, 12); }
+                if (op === '/') { b = r(2, 9); a = b * r(2, 12); }
+            } else if (gd === 'M') { // Middle School (6th - 8th)
+                a = r(-50, 100); b = r(-20, 50); if(b===0) b=1;
+                if (op === '*') { a = r(-12, 15); b = r(-10, 12); }
+                if (op === '/') { b = r(-12, 12); if(b===0) b=2; a = b * r(-10, 10); }
+            } else { // High School (9th - 12th / Advanced Matrix Algebra)
+                let x = r(-12, 15); a = r(2, 6); b = r(-20, 20);
+                let c = a * x + b;
+                curQ = { q: `Decrypt the linear matrix node vector 'x':\n${a}x ${b >= 0 ? '+ '+b : b} = ${c}`, a: x.toString(), h: `Step 1: Balance constants by subtracting/adding to right side.\nStep 2: Isolate node string via modular division.` };
+                document.getElementById('qText').innerText = curQ.q;
+                document.getElementById('hint').innerText = curQ.h;
+                return;
+            }
+
+            // Standard operations compiler
+            if (op === '+') { ans = a + b; q = `${a} + ${b} = ?`; h = "■ ".repeat(a) + "\n" + "□ ".repeat(b); }
+            else if (op === '-') { ans = a - b; q = `${a} - ${b} = ?`; h = `Total Allocation: ${a}. Extracting Layer: ${b}`; }
+            else if (op === '*') { ans = a * b; q = `${a} × ${b} = ?`; for(let i=0;i<Math.min(a,8);i++) h += "■ ".repeat(Math.min(b,15)) + "\n"; }
+            else { ans = a / b; q = `${a} ÷ ${b} = ?`; h = `Distribute an active register pool of ${a} elements into ${b} partition channels.`; }
+
+            curQ = { q: `Compile Operational Array:\n${q}`, a: ans.toString(), h: `[VISUAL PROTOCOL BUFFER]:\n` + h };
+            document.getElementById('qText').innerText = curQ.q;
+            document.getElementById('hint').innerText = curQ.h;
+        }
+
+        function k(char) {
+            if (char === 'CLR') typed = "";
+            else if (char === 'EXE') { evalAns(); return; }
+            else if (typed.length < 8) typed += char;
+            document.getElementById('ansBox').innerText = typed;
+        }
+
+        function evalAns() {
+            if (typed.trim() === "") return;
+            let f = document.getElementById('feedback');
+            if (typed.trim() === curQ.a) {
+                streak++; score = Math.min(100, score + (score < 70 ? 10 : (score < 90 ? 5 : 2)));
+                f.innerText = ">> VALID DECRYPTION PASS. SMART-SCORE INCREMENTED."; f.style.color = "#00ff88";
+                typed = ""; document.getElementById('ansBox').innerText = "";
+                setTimeout(() => { f.innerText = ""; genQ(); document.getElementById('score').innerText = score; document.getElementById('streak').innerText = streak; }, 1500);
+            } else {
+                streak = 0; score = Math.max(0, score - (score > 75 ? 7 : 4));
+                f.innerText = `>> ERROR OVERRIDE: INVALID. COR_VAL: [ ${curQ.a} ]`; f.style.color = "#ff3333";
+                document.getElementById('score').innerText = score; document.getElementById('streak').innerText = streak;
+            }
+        }
+document.addEventListener('keydown', (e) => {
+let key = e.key.toUpperCase();
+if (!isNaN(key) || key==='-' || key==='.') k(key);
+else if (key === 'BACKSPACE' || key === 'DELETE') k('CLR');
+else if (key === 'ENTER') k('EXE');
+});
+genQ();
+
